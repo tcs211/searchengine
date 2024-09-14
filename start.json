@@ -1,0 +1,10 @@
+{
+    "apps": [
+        {
+            "name": "searchengine",
+            "watch": false,
+            "script": "D:\\web\\searchengine\\app.js",
+            
+        }
+    ]
+}

@@ -1,0 +1,4 @@
+node_modules/
+public/documents/
+package-lock.json
+local_database.json

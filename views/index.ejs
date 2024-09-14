@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Search Engine</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <style>
+        .result-item {
+            margin-bottom: 20px;
+        }
+        .upload-icon {
+            font-size: 2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container mt-5">
+        
+        <div class="upload-section mb-5 text-right">
+            <i class="fas fa-upload upload-icon" @click="showUploadModal" style="color: #007bff; font-size: 24px;"></i>
+        </div>
+        
+        <div class="search-section">
+            <h2>Tungo 搜尋文件</h2>
+            <form @submit.prevent="searchDocuments">
+                <div class="form-group">
+                    <input type="text" class="form-control" v-model="searchQuery" 
+                    placeholder="輸入關鍵字" required>
+                </div>
+                <button type="submit" class="btn btn-primary">搜尋</button>
+            </form>
+            <div v-if="searchResults.length > 0" class="mt-4">
+                <h3>搜尋結果</h3>
+                <div v-for="result in searchResults" :key="result.filename" class="result-item card">
+                    <div class="card-body">
+                        <h4 class="card-title"><a :href="'/documents/' + result.filename" target="_blank">{{ result.filename }}</a></h4>
+                        <p class="card-text">搜尋分數: {{ result.score }}</p>
+                        <p class="card-text">字元數: {{ result.charCount }}</p>
+                        <p class="card-text">單字數: {{ result.wordCount }}</p>
+                        <p class="card-text">句子數: {{ result.sentenceCount }}</p>
+                        <h5>最常見的10個關鍵字:</h5>
+                        <ul>
+                            <li v-for="(frequency, word) in result.keywordFrequency" :key="word">
+                                {{ word }}: {{ frequency }}
+                            </li>
+                        </ul>
+                        <p class="card-text"><strong>
+                            預覽:
+                        </strong> {{ result.preview }}</p>
+                    </div>
+                </div>
+            </div>
+            <p v-else-if="searchPerformed">沒有找到相關文件</p>
+        </div>
+
+        <!-- Upload Modal -->
+        <div class="modal fade" id="uploadModal" tabindex="-1" role="dialog" aria-labelledby="uploadModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadModalLabel">上傳文件</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="uploadFile" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <input type="file" class="form-control-file" ref="fileInput" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">上傳</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Result Modal -->
+        <div class="modal fade" id="uploadResultModal" tabindex="-1" role="dialog" aria-labelledby="uploadResultModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadResultModalLabel">上傳結果</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body" v-if="uploadResult">
+                        <h3>檔案名稱: <a :href="'/documents/' + uploadResult.filename" target="_blank">{{ uploadResult.filename }}</a></h3>
+                        <p>字元數: {{ uploadResult.charCount }}</p>
+                        <p>單字數: {{ uploadResult.wordCount }}</p>
+                        <p>句子數: {{ uploadResult.sentenceCount }}</p>
+                        <h4>最常見的10個關鍵字:</h4>
+                        <ul>
+                            <li v-for="(frequency, word) in uploadResult.keywordFrequency" :key="word">
+                                {{ word }}: {{ frequency }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                searchQuery: '',
+                searchResults: [],
+                searchPerformed: false,
+                uploadResult: null
+            },
+            methods: {
+                async searchDocuments() {
+                    try {
+                        const response = await axios.get(`/search?q=${encodeURIComponent(this.searchQuery)}`);
+                        this.searchResults = response.data.results;
+                        this.searchPerformed = true;
+                    } catch (error) {
+                        console.error('Error during search:', error);
+                        alert('An error occurred during search');
+                    }
+                },
+                showUploadModal() {
+                    $('#uploadModal').modal('show');
+                },
+                async uploadFile() {
+                    const formData = new FormData();
+                    const file = this.$refs.fileInput.files[0];
+                    formData.append('file', file);
+
+                    try {
+                        const response = await axios.post('/upload', formData, {
+                            headers: {
+                                'Content-Type': 'multipart/form-data'
+                            }
+                        });
+                        this.uploadResult = response.data;
+                        $('#uploadModal').modal('hide');
+                        $('#uploadResultModal').modal('show');
+                    } catch (error) {
+                        console.error('Error during file upload:', error);
+                        alert('An error occurred during file upload');
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
